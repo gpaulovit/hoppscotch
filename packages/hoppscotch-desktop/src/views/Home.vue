@@ -307,7 +307,7 @@ const loadVendored = async () => {
     const vendoredInstance: VendoredInstance = {
       type: "vendored",
       displayName: "Hoppscotch",
-      version: "26.5.0",
+      version: "26.6.0",
     }
 
     const connectionState: ConnectionState = {
@@ -347,7 +347,7 @@ const loadVendored = async () => {
       bundleName: "Hoppscotch",
       window: {
         title: "Hoppscotch",
-        // @ts-expect-error
+        // @ts-expect-error - zoomLevel is not officially exposed in Tauri's WindowOptions types
         zoomLevel: desktopSettings.settings.zoomLevel,
       },
     })

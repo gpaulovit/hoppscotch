@@ -97,9 +97,9 @@ export function useAppInitialization() {
         bundleName: VENDORED_INSTANCE_CONFIG.bundleName!,
         window: {
           title: "Hoppscotch",
-          // @ts-expect-error
+          // @ts-expect-error - zoomLevel is not officially exposed in Tauri's WindowOptions types
           zoomLevel: desktopSettings.settings.zoomLevel,
-        } as any,
+        },
       })
 
       mainDiag(
@@ -166,7 +166,7 @@ export function useAppInitialization() {
           host: instance.serverUrl,
           window: {
             title: "Hoppscotch",
-            // @ts-expect-error
+            // @ts-expect-error - zoomLevel is not officially exposed in Tauri's WindowOptions types
             zoomLevel: desktopSettings.settings.zoomLevel,
           },
         })
@@ -216,17 +216,47 @@ export function useAppInitialization() {
           target: instance.serverUrl,
         })
 
-        await download({ serverUrl: instance.serverUrl })
+        const dlResp = await download({ serverUrl: instance.serverUrl })
+        const updatedInstance: Instance = {
+          ...instance,
+          version: dlResp.version,
+          bundleName: dlResp.bundleName,
+        }
+        const DESKTOP_APP_SERVER_PATH = "/desktop-app-server"
+        const normUrl = (u: string) => {
+          let n = u.toLowerCase()
+          while (n.endsWith("/")) n = n.slice(0, -1)
+          if (n.endsWith(DESKTOP_APP_SERVER_PATH))
+            n = n.slice(0, -DESKTOP_APP_SERVER_PATH.length)
+          while (n.endsWith("/")) n = n.slice(0, -1)
+          return n
+        }
+        try {
+          const recentInstances = await persistence.recentInstances.get()
+          await persistence.recentInstances.set(
+            recentInstances.map((r) =>
+              normUrl(r.serverUrl) === normUrl(updatedInstance.serverUrl)
+                ? {
+                    ...r,
+                    version: dlResp.version,
+                    bundleName: dlResp.bundleName,
+                  }
+                : r
+            )
+          )
+        } catch (syncErr) {
+          console.error("Failed to sync recent instance version:", syncErr)
+        }
 
         mainDiag(
-          `loadVendoredIfMatches: loading non-vendored instance, bundle=${instance.bundleName}`
+          `loadVendoredIfMatches: loading non-vendored instance, bundle=${updatedInstance.bundleName}`
         )
         await desktopSettings.ready()
         const loadResp = await load({
-          bundleName: instance.bundleName!,
+          bundleName: updatedInstance.bundleName!,
           window: {
             title: "Hoppscotch",
-            // @ts-expect-error
+            // @ts-expect-error - zoomLevel is not officially exposed in Tauri's WindowOptions types
             zoomLevel: desktopSettings.settings.zoomLevel,
           },
         })
@@ -240,7 +270,7 @@ export function useAppInitialization() {
 
         await saveConnectionState({
           status: "connected",
-          instance: instance,
+          instance: updatedInstance,
         })
 
         console.log(`Successfully loaded instance: ${instance.displayName}`)
